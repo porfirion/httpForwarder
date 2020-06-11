@@ -140,6 +140,11 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 	returnText(w, 200, msg)
 }
 
+func handleTarget(w http.ResponseWriter, r *http.Request) {
+	msg := fmt.Sprintf("%s %s", r.Method, r.URL)
+	returnText(w, 200, msg)
+}
+
 func handler(w http.ResponseWriter, r *http.Request) {
 	method := r.Method
 	rURL := r.URL
@@ -154,6 +159,8 @@ func handler(w http.ResponseWriter, r *http.Request) {
 		dispatch(methodSupports, supportsFavicon, handleFavicon, w, r)
 	case strings.HasPrefix(path, forwardPrefix):
 		dispatch(methodSupports, supportsForward, handleForward, w, r)
+	case path == "/target":
+		dispatch(methodSupports, supportsForward, handleTarget, w, r)
 	default:
 		handleUnsupportedPath(w, r)
 	}
@@ -221,9 +228,10 @@ func handleForward(w http.ResponseWriter, r *http.Request) {
 		if err != nil {
 			msg := fmt.Sprintf("****** Error parsing new URL (%s): %s", newURL, err.Error())
 			fmt.Println(msg)
-			returnText(w, 400, // Bad Request
-				msg)
+			returnText(w, 400, msg)
+			return
 		}
+
 		rh.handleResponse(client.Do(request))
 	}
 }
@@ -238,13 +246,13 @@ func sendPost(in *http.Request, newURL string) (r *http.Response, err error) {
 
 // DELETE, OPTIONS, & TRACE
 func makeBodyLessRequest(in *http.Request, newURL string) (*http.Request, error) {
-	out := &http.Request{}
-	parsedURL, err := url.Parse(newURL)
-	if err == nil {
-		*out = *in // copy simple
-		out.URL = parsedURL
+	_, err := url.Parse(newURL)
+	if err != nil {
+		return nil, err
 	}
-	return out, err
+
+	defer in.Body.Close()
+	return http.NewRequest(in.Method, newURL, in.Body) // copy simple
 }
 
 type ResponseHandler struct {
