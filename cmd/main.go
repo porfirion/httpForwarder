@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -251,8 +252,16 @@ func makeBodyLessRequest(in *http.Request, newURL string) (*http.Request, error)
 		return nil, err
 	}
 
-	defer in.Body.Close()
-	return http.NewRequest(in.Method, newURL, in.Body) // copy simple
+	bts, err := ioutil.ReadAll(in.Body)
+	if err != nil {
+		return nil, err
+	}
+	err = in.Body.Close()
+	if err != nil {
+		return nil, err
+	}
+
+	return http.NewRequest(in.Method, newURL, bytes.NewReader(bts))
 }
 
 type ResponseHandler struct {
